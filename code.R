@@ -52,7 +52,7 @@ nfl <- nfl |>
   filter(season == 2022) |>
   rename(team_a = home_team, team_b = away_team)
 
-weekly_ratings <- data.frame(week = integer(), team = character(), elo = numeric())
+weekly_ratings <- data.frame(week = integer(), team = character(), elo = numeric(), game_id = character())
 
 # Loop through each row in the nfl data frame
 for (i in 1:nrow(nfl)) {
@@ -68,8 +68,8 @@ for (i in 1:nrow(nfl)) {
   new_elo_b <- elo_b + K * (outcome_b - expected_b)
   
   # Store the ratings for this week in the weekly_ratings data frame
-  weekly_ratings <- rbind(weekly_ratings, data.frame(week = nfl$week[i], team = team_a, elo = new_elo_a))
-  weekly_ratings <- rbind(weekly_ratings, data.frame(week = nfl$week[i], team = team_b, elo = new_elo_b))
+  weekly_ratings <- rbind(weekly_ratings, data.frame(game_id = nfl$game_id[i], week = nfl$week[i], team = team_a, elo = new_elo_a))
+  weekly_ratings <- rbind(weekly_ratings, data.frame(game_id = nfl$game_id[i], week = nfl$week[i], team = team_b, elo = new_elo_b))
   
   # Update the ratings in the initial_ratings data frame
   initial_ratings$elo[initial_ratings$team == team_a] <- new_elo_a
@@ -80,3 +80,24 @@ for (i in 1:nrow(nfl)) {
 #  team = distinct(nfl, team_a),
 #  elo = 1500
 #)
+
+nfl1 <- weekly_ratings |>
+  mutate(team_id = ave(team, game_id, FUN = seq_along)) |>
+  pivot_wider(
+    id_cols = game_id,
+    names_from = team_id,
+    values_from = c(team, elo),
+    names_sep = "_"
+  ) |>
+  left_join(nfl |> select(game_id, week, winning_team), by = 'game_id') |>
+  mutate(predicted_team = case_when(
+    elo_1 > elo_2 ~ team_1,
+    elo_2 > elo_1 ~ team_2,
+    elo_1 == elo_2 ~ 'Draw'
+  ))
+
+nfl1 |>
+  group_by(week) |>
+  reframe(
+    elo_win = sum(winning_team == predicted_team, na.rm = TRUE) / n()
+  )
