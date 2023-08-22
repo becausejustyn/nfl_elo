@@ -18,8 +18,15 @@ calculate_expected_outcome <- function(elo_a, elo_b, scaling_factor = 400) {
 }
 
 make_init_ratings <- function(data) {
+  if ("team_a" %in% colnames(data)) {
+    team_a <- data$team_a
+  } else if ("home_team" %in% colnames(data)) {
+    team_a <- data$home_team
+  } else {
+    stop("Data must contain either 'team_a' or 'home_team' columns.")
+  }
   initial_ratings <- data.frame(
-    team = distinct(data, team_a),
+    team = unique(team_a),
     elo = 1500
   )
   return(initial_ratings)
